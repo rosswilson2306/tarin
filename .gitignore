@@ -1,3 +1,6 @@
 /target
 
 .env
+
+# For testing
+output.json
