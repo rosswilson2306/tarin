@@ -1,10 +1,12 @@
 use client::PsiClient;
 use dotenv::dotenv;
+use sitemaps::fetch_site_map;
 use std::error::Error;
 use tokio::fs::File;
 use tokio::io::{self, AsyncBufReadExt, BufReader};
 
 mod client;
+mod sitemaps;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -13,7 +15,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let psi_url = std::env::var("PSI_URL")?;
     let psi_key = std::env::var("PSI_KEY")?;
 
-    let _websites = get_base_sites("sites.txt").await?;
+    let websites = get_base_sites("sites.txt").await?;
+
+    for url in websites.iter() {
+        let _sitemap = fetch_site_map(url).await?;
+    }
 
     let client = PsiClient::new(&psi_url, &psi_key);
 
