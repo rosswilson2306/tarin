@@ -1,4 +1,5 @@
-use reqwest::{Client, Error};
+use anyhow::{Context, Result};
+use reqwest::Client;
 use serde_json::Value;
 
 pub struct PsiClient {
@@ -16,16 +17,18 @@ impl PsiClient {
         }
     }
 
-    pub async fn get_report(&self, report_url: &str) -> Result<Value, Error> {
+    pub async fn get_report(&self, report_url: &str) -> Result<Value> {
         let params = [("url", report_url), ("key", &self.api_key)];
         let response = self
             .client
             .get(&self.base_url)
             .query(&params)
             .send()
-            .await?
+            .await
+            .context("Page Speed Insights request failed")?
             .json::<Value>()
-            .await?;
+            .await
+            .context("Unable to parse JSON response")?;
 
         Ok(response)
     }

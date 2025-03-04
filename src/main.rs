@@ -1,7 +1,7 @@
+use anyhow::Result;
 use client::PsiClient;
 use dotenv::dotenv;
 use sitemaps::fetch_sitemap;
-use std::error::Error;
 use tokio::fs::File;
 use tokio::io::{self, AsyncBufReadExt, BufReader};
 
@@ -9,7 +9,7 @@ mod client;
 mod sitemaps;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+async fn main() -> Result<()> {
     dotenv().ok();
 
     let psi_url = std::env::var("PSI_URL")?;

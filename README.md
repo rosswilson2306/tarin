@@ -14,3 +14,8 @@ PSI_URL=XXXXX
 
 At the time of writing the url for the Page Speed Insights api is `https://www.googleapis.com/pagespeedonline/v5/runPagespeed`
 but this may change in the future (see [Page Speed Insights documentation](https://developers.google.com/speed/docs/insights/v5/get-started)).
+
+## TODO
+
+- request logging
+- test coverage

@@ -1,18 +1,21 @@
-use std::error::Error;
+use anyhow::{anyhow, Result};
 use url::Url;
 
-pub async fn fetch_sitemap(url: &str) -> Result<String, Box<dyn Error>> {
+pub async fn fetch_sitemap(url: &str) -> Result<String> {
     let mut sitemap_url = Url::parse(url)?;
     sitemap_url
         .path_segments_mut()
-        .map_err(|_| "Invalid base url")?
+        .map_err(|_| anyhow!("Invalid base url: cannot set path segments"))?
         .push("sitemaps.xml");
 
     // TODO: look into refactoring this into a client, see https://docs.rs/reqwest/latest/reqwest/?search=params#making-a-get-request
     let response = reqwest::get(sitemap_url).await?;
 
     if !response.status().is_success() {
-        return Err("Failed to fetch sitemaps".into());
+        return Err(anyhow!(
+            "Failed to fetch sitemaps: HTTP {}",
+            response.status()
+        ));
     }
 
     let body = response.text().await?;
