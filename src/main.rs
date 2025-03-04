@@ -1,6 +1,6 @@
 use client::PsiClient;
 use dotenv::dotenv;
-use sitemaps::fetch_site_map;
+use sitemaps::fetch_sitemap;
 use std::error::Error;
 use tokio::fs::File;
 use tokio::io::{self, AsyncBufReadExt, BufReader};
@@ -18,7 +18,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let websites = get_base_sites("sites.txt").await?;
 
     for url in websites.iter() {
-        let _sitemap = fetch_site_map(url).await?;
+        let _sitemap = fetch_sitemap(url).await?;
     }
 
     let client = PsiClient::new(&psi_url, &psi_key);
