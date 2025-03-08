@@ -1,7 +1,6 @@
 use anyhow::Result;
-use client::PsiClient;
 use dotenv::dotenv;
-use sitemaps::fetch_sitemap;
+use sitemaps::{extract_loc_urls, fetch_sitemap};
 use tokio::fs::File;
 use tokio::io::{self, AsyncBufReadExt, BufReader};
 
@@ -12,18 +11,16 @@ mod sitemaps;
 async fn main() -> Result<()> {
     dotenv().ok();
 
-    let psi_url = std::env::var("PSI_URL")?;
-    let psi_key = std::env::var("PSI_KEY")?;
+    let _psi_url = std::env::var("PSI_URL")?;
+    let _psi_key = std::env::var("PSI_KEY")?;
 
     let websites = get_base_sites("sites.txt").await?;
 
     for url in websites.iter() {
-        let _sitemap = fetch_sitemap(url).await?;
+        let sitemap = fetch_sitemap(url).await?;
+
+        let _urls = extract_loc_urls(&sitemap).await;
     }
-
-    let client = PsiClient::new(&psi_url, &psi_key);
-
-    let _report = client.get_report("https://google.com").await?;
 
     Ok(())
 }
