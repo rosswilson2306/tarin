@@ -1,6 +1,6 @@
 use anyhow::Result;
 use dotenv::dotenv;
-use sitemaps::{extract_loc_urls, fetch_sitemap};
+use sitemaps::extract_sitemap_url_list;
 use tokio::fs::File;
 use tokio::io::{self, AsyncBufReadExt, BufReader};
 
@@ -17,9 +17,7 @@ async fn main() -> Result<()> {
     let websites = get_base_sites("sites.txt").await?;
 
     for url in websites.iter() {
-        let sitemap = fetch_sitemap(url).await?;
-
-        let _urls = extract_loc_urls(&sitemap).await;
+        extract_sitemap_url_list(url).await?;
     }
 
     Ok(())
