@@ -29,6 +29,8 @@ async fn main() -> Result<()> {
         extract_sitemap_url_list(url).await?;
     }
 
+    // TODO: look into logging format
+    tracing_subscriber::fmt::init();
     let app = Router::new().route("/reports", get(sse_reports_hanlder));
 
     let listener = tokio::net::TcpListener::bind(server_url).await.unwrap();
