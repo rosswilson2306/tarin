@@ -10,6 +10,11 @@ serde = { version = "1.0.218", features = ["derive"] }
 dotenv = "0.15.0"
 serde_json = "1.0.140"
 url = "2.5.4"
-mockito = "1.7.0"
 anyhow = "1.0.97"
 quick-xml = "0.37.2"
+axum = "0.8.1"
+tokio-stream = "0.1.17"
+futures = "0.3.31"
+
+[dev-dependencies]
+mockito = "1.7.0"
