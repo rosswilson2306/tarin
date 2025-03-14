@@ -5,6 +5,8 @@ use quick_xml::events::Event;
 use quick_xml::reader::Reader;
 use url::Url;
 
+use crate::config::load_config;
+
 async fn fetch_sitemap(url: &str) -> Result<String> {
     // TODO: look into refactoring this into a client, see https://docs.rs/reqwest/latest/reqwest/?search=params#making-a-get-request
     let response = reqwest::get(url).await?;
@@ -57,6 +59,8 @@ fn remove_duplicates(mut source_set: Vec<String>) -> Vec<String> {
 }
 
 pub async fn extract_sitemap_url_list(base_url: &str) -> Result<Vec<String>> {
+    let config = load_config("config.toml").await;
+
     let sitemap_url =
         build_sitemap_index_url(base_url).context("Failed to build sitemap index url")?;
     let sitemap = fetch_sitemap(&sitemap_url)
@@ -69,9 +73,11 @@ pub async fn extract_sitemap_url_list(base_url: &str) -> Result<Vec<String>> {
     let unique_top_level_urls = remove_duplicates(top_level_urls);
 
     for top_level_url in unique_top_level_urls {
-        // TODO: this should come from a config file
-        if top_level_url.contains("locations") || top_level_url.contains("counties") {
-            continue;
+        if let Some(ref config) = config {
+            if config.ignore_paths.iter().any(|ignore_path| top_level_url.contains(ignore_path)) {
+                println!("Matched ignore list: {top_level_url}");
+                continue;
+            }
         }
 
         if top_level_url.contains("sitemaps") {

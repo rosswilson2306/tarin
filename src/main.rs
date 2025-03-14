@@ -8,7 +8,7 @@ use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
 mod client;
 mod handlers;
 mod utils;
-mod config;
+pub mod config;
 
 use handlers::sse_reports_handler;
 
