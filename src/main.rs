@@ -1,19 +1,18 @@
-use std::{convert::Infallible, time::Duration};
-
 use anyhow::{Context, Result};
-use axum::{
-    response::sse::{Event, KeepAlive, Sse},
-    routing::get,
-    Router,
-};
+use axum::{routing::get, Router};
 use dotenv::dotenv;
 use sitemaps::extract_sitemap_url_list;
+use tokio::fs::File;
 use tokio::io::{self, AsyncBufReadExt, BufReader};
-use tokio::{fs::File, time::interval};
-use tokio_stream::StreamExt as _;
+use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
+use tracing::Level;
+use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
 mod client;
+mod handlers;
 mod sitemaps;
+
+use handlers::sse_reports_hanlder;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -30,20 +29,20 @@ async fn main() -> Result<()> {
     }
 
     // TODO: look into logging format
-    tracing_subscriber::fmt::init();
-    let app = Router::new().route("/reports", get(sse_reports_hanlder));
+    // tracing_subscriber::fmt::init();
+    tracing_subscriber::registry().with(fmt::layer()).init();
+    let app = Router::new()
+        .route("/reports", get(sse_reports_hanlder))
+        .layer(
+            TraceLayer::new_for_http()
+                .make_span_with(DefaultMakeSpan::new().level(Level::INFO))
+                .on_response(DefaultOnResponse::new().level(Level::INFO)),
+        );
 
     let listener = tokio::net::TcpListener::bind(server_url).await.unwrap();
     axum::serve(listener, app).await.unwrap();
 
     Ok(())
-}
-
-async fn sse_reports_hanlder() -> Sse<impl futures::Stream<Item = Result<Event, Infallible>>> {
-    let stream = tokio_stream::wrappers::IntervalStream::new(interval(Duration::from_secs(2)))
-        .map(|_| Ok(Event::default().data("New report available")));
-
-    Sse::new(stream).keep_alive(KeepAlive::default())
 }
 
 // Dev helper to get website list from file
