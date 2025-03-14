@@ -1,17 +1,16 @@
 use anyhow::{Context, Result};
 use axum::{routing::get, Router};
 use dotenv::dotenv;
-use sitemaps::extract_sitemap_url_list;
 use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
 use tracing::Level;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
 mod client;
 mod handlers;
-mod sitemaps;
 mod utils;
 
-use handlers::sse_reports_hanlder;
+use client::sitemaps::extract_sitemap_url_list;
+use handlers::sse_reports_handler;
 use utils::get_base_sites;
 
 #[tokio::main]
@@ -29,10 +28,9 @@ async fn main() -> Result<()> {
     }
 
     // TODO: look into logging format
-    // tracing_subscriber::fmt::init();
     tracing_subscriber::registry().with(fmt::layer()).init();
     let app = Router::new()
-        .route("/reports", get(sse_reports_hanlder))
+        .route("/reports", get(sse_reports_handler))
         .layer(
             TraceLayer::new_for_http()
                 .make_span_with(DefaultMakeSpan::new().level(Level::INFO))
