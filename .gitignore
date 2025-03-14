@@ -1,6 +1,7 @@
 /target
 
 .env
+config.toml
 
 # For testing
 output.json
