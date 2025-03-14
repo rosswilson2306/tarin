@@ -9,9 +9,7 @@ mod client;
 mod handlers;
 mod utils;
 
-use client::sitemaps::extract_sitemap_url_list;
 use handlers::sse_reports_handler;
-use utils::get_base_sites;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -20,12 +18,6 @@ async fn main() -> Result<()> {
     let _psi_url = std::env::var("PSI_URL").context("PSI_URL not found")?;
     let _psi_key = std::env::var("PSI_KEY").context("PSI_KEY not found")?;
     let server_url = std::env::var("SERVER_URL").context("SERVER_URL not found")?;
-
-    let websites = get_base_sites("sites.txt").await?;
-
-    for url in websites.iter() {
-        extract_sitemap_url_list(url).await?;
-    }
 
     // TODO: look into logging format
     tracing_subscriber::registry().with(fmt::layer()).init();
