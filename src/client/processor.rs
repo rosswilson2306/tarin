@@ -13,19 +13,16 @@ pub async fn process_websites(
     for site in websites {
         let sender = sender.clone();
         task::spawn(async move {
-            let site_urls = extract_sitemap_url_list(&site).await;
-
-            match site_urls {
-                Ok(urls) => {
-                    for url in urls {
-                        // TODO: fetch report for url
-                        if sender.send(Ok(Event::default().data(url))).await.is_err() {
-                            break;
-                        }
-                        sleep(Duration::from_secs(2)).await;
+            if let Ok(site_urls) = extract_sitemap_url_list(&site).await {
+                for url in site_urls {
+                    // TODO: fetch report for url
+                    if sender.send(Ok(Event::default().data(url))).await.is_err() {
+                        break;
                     }
+                    sleep(Duration::from_secs(2)).await;
                 }
-                Err(_) => eprintln!("Failed to extract urls from sitemaps"),
+            } else {
+                eprintln!("Failed to extract urls from sitemaps")
             }
         });
     }
