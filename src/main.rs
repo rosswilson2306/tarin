@@ -2,8 +2,6 @@ use anyhow::{Context, Result};
 use axum::{routing::get, Router};
 use dotenv::dotenv;
 use sitemaps::extract_sitemap_url_list;
-use tokio::fs::File;
-use tokio::io::{self, AsyncBufReadExt, BufReader};
 use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
 use tracing::Level;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
@@ -11,8 +9,10 @@ use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
 mod client;
 mod handlers;
 mod sitemaps;
+mod utils;
 
 use handlers::sse_reports_hanlder;
+use utils::get_base_sites;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -43,18 +43,4 @@ async fn main() -> Result<()> {
     axum::serve(listener, app).await.unwrap();
 
     Ok(())
-}
-
-// Dev helper to get website list from file
-async fn get_base_sites(filepath: &str) -> io::Result<Vec<String>> {
-    let file = File::open(filepath).await?;
-    let reader = BufReader::new(file);
-    let mut lines = reader.lines();
-    let mut sites = Vec::new();
-
-    while let Some(line) = lines.next_line().await? {
-        sites.push(line)
-    }
-
-    Ok(sites)
 }
