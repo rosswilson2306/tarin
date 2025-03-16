@@ -119,6 +119,27 @@ async fn fetch_sitemap_recurse(
     Ok(())
 }
 
+fn match_dynamic_url_pattern(url: &str, pattern: &str) -> Option<String> {
+    let pattern_parts: Vec<&str> = pattern.split("/").collect();
+    let url_parts: Vec<&str> = url.split("/").collect();
+
+    if url_parts.len() < pattern_parts.len() {
+        return None;
+    }
+
+    for (p_part, u_part) in pattern_parts.iter().zip(url_parts.iter()) {
+        if p_part.starts_with(":") {
+            continue;
+        }
+
+        if p_part != u_part {
+            return None;
+        }
+    }
+
+    Some(pattern.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -241,5 +262,32 @@ mod tests {
 
         let urls = extract_loc_urls(xml).await;
         assert_eq!(urls, vec!["https://example.com/page1"]);
+    }
+
+    #[test]
+    async fn url_segment_length_less_than_pattern_length() {
+        let url = "/foo/123";
+        let pattern = "/foo/bar/:id";
+
+        let output = match_dynamic_url_pattern(url, pattern);
+        assert!(output.is_none());
+    }
+
+    #[test]
+    async fn fail_if_static_url_segment_differs_from_pattern() {
+        let url = "/foo/123";
+        let pattern = "/bar/:id";
+
+        let output = match_dynamic_url_pattern(url, pattern);
+        assert!(output.is_none());
+    }
+
+    #[test]
+    async fn match_url_to_pattern() {
+        let url = "/example/123";
+        let pattern = "/example/:id";
+
+        let output = match_dynamic_url_pattern(url, pattern);
+        assert!(output.is_some());
     }
 }
