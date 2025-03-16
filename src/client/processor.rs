@@ -8,7 +8,7 @@ use crate::{client::sitemaps::extract_sitemap_url_list, utils::get_base_sites};
 pub async fn process_websites(
     sender: mpsc::Sender<std::result::Result<Event, Infallible>>,
 ) -> Result<()> {
-    let websites = get_base_sites("sites.txt").await?;
+    let websites = get_base_sites().await?;
 
     for site in websites {
         let sender = sender.clone();

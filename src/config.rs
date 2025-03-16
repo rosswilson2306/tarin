@@ -5,6 +5,7 @@ use tokio::fs;
 pub struct Config {
     pub patterns: Vec<String>,
     pub ignore_paths: Vec<String>,
+    pub sites: Vec<String>,
 }
 
 pub async fn load_config(file_path: &str) -> Option<Config> {
@@ -24,7 +25,7 @@ mod tests {
         let mut temp_file = NamedTempFile::new().expect("Failed to create tempfile");
         writeln!(
             temp_file,
-            "patterns = [\"/first/:slug\", \"/second/:slug\"]\nignore_paths = [\"/ignore-this\"]"
+            "patterns = [\"/first/:slug\", \"/second/:slug\"]\nignore_paths = [\"/ignore-this\"]\nsites = [\"https://example.com\"]"
         )
         .expect("Failed to write to temp file");
         let file_path = temp_file.path().to_str().unwrap();

@@ -1,18 +1,19 @@
-use anyhow::Result;
-use tokio::fs::File;
-use tokio::io::{AsyncBufReadExt, BufReader};
+use anyhow::{anyhow, Result};
 use url::Url;
 
+use crate::config::load_config;
+
 // Dev helper to get website list from file
-pub async fn get_base_sites(filepath: &str) -> Result<Vec<Url>> {
-    let file = File::open(filepath).await?;
-    let reader = BufReader::new(file);
-    let mut lines = reader.lines();
+pub async fn get_base_sites() -> Result<Vec<Url>> {
     let mut sites = Vec::new();
 
-    while let Some(line) = lines.next_line().await? {
-        let site_url = Url::parse(&line)?;
-        sites.push(site_url)
+    if let Some(config) = load_config("config.toml").await {
+        for site in &config.sites {
+            let site_url = Url::parse(site)?;
+            sites.push(site_url)
+        }
+    } else {
+        return Err(anyhow!("No config found"));
     }
 
     Ok(sites)

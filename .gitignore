@@ -5,5 +5,4 @@ config.toml
 
 # For testing
 output.json
-sites.txt
 notes.md
