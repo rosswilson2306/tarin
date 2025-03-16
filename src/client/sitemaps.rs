@@ -8,9 +8,9 @@ use url::Url;
 
 use crate::config::{load_config, Config};
 
-async fn fetch_sitemap(url: &str) -> Result<String> {
+async fn fetch_sitemap(url: &Url) -> Result<String> {
     // TODO: look into refactoring this into a client, see https://docs.rs/reqwest/latest/reqwest/?search=params#making-a-get-request
-    let response = reqwest::get(url).await?;
+    let response = reqwest::get(url.to_string()).await?;
 
     if !response.status().is_success() {
         return Err(anyhow!(
@@ -24,25 +24,26 @@ async fn fetch_sitemap(url: &str) -> Result<String> {
     Ok(body)
 }
 
-fn build_sitemap_index_url(base_url: &str) -> Result<String> {
-    let mut sitemap_url = Url::parse(base_url).context("Invalid base url")?;
-    sitemap_url
-        .path_segments_mut()
+fn build_sitemap_index_url(base_url: &Url) -> Result<Url> {
+    let mut url = base_url.clone();
+    url.path_segments_mut()
         .map_err(|_| anyhow!("Invalid base url: cannot set path segments"))?
         .push("sitemaps.xml");
-    Ok(sitemap_url.to_string())
+    Ok(url)
 }
 
-async fn extract_loc_urls(xml_string: &str) -> Vec<String> {
+async fn extract_loc_urls(xml_string: &str) -> Vec<Url> {
     let mut reader = Reader::from_str(xml_string);
-    let mut urls: Vec<String> = Vec::new();
+    let mut urls: Vec<Url> = Vec::new();
 
     while let Ok(event) = reader.read_event() {
         match event {
             Event::Start(ref e) if e.name().as_ref() == b"loc" => {
                 if let Ok(text) = reader.read_text(e.name()) {
-                    if Url::parse(&text).is_ok() {
-                        urls.push(text.to_string());
+                    let url = Url::parse(&text);
+
+                    if let Ok(url) = url {
+                        urls.push(url);
                     }
                 }
             }
@@ -53,13 +54,13 @@ async fn extract_loc_urls(xml_string: &str) -> Vec<String> {
     urls
 }
 
-fn remove_duplicates(mut source_set: Vec<String>) -> Vec<String> {
+fn remove_duplicates(mut source_set: Vec<Url>) -> Vec<Url> {
     let mut seen = HashSet::new();
     source_set.retain(|x| seen.insert(x.clone()));
     source_set
 }
 
-pub async fn extract_sitemap_url_list(base_url: &str) -> Result<Vec<String>> {
+pub async fn extract_sitemap_url_list(base_url: &Url) -> Result<Vec<Url>> {
     let config = load_config("config.toml").await;
 
     let sitemap_index_url =
@@ -81,12 +82,12 @@ pub async fn extract_sitemap_url_list(base_url: &str) -> Result<Vec<String>> {
 
 #[async_recursion]
 async fn fetch_sitemap_recurse(
-    sitemap_url: &str,
-    all_urls: &mut Vec<String>,
-    visited_sitemaps: &mut HashSet<String>,
+    sitemap_url: &Url,
+    all_urls: &mut Vec<Url>,
+    visited_sitemaps: &mut HashSet<Url>,
     config: &Option<Config>,
 ) -> Result<()> {
-    if !visited_sitemaps.insert(sitemap_url.to_string()) {
+    if !visited_sitemaps.insert(sitemap_url.to_owned()) {
         return Ok(());
     }
 
@@ -102,14 +103,14 @@ async fn fetch_sitemap_recurse(
             if config
                 .ignore_paths
                 .iter()
-                .any(|ignore_path| url.contains(ignore_path))
+                .any(|ignore_path| url.path().contains(ignore_path))
             {
                 println!("Matched ignore list: {url}");
                 continue;
             }
         }
 
-        if url.contains("sitemaps/") {
+        if url.path().contains("sitemaps/") {
             fetch_sitemap_recurse(&url, all_urls, visited_sitemaps, config).await?;
         } else {
             all_urls.push(url);
@@ -149,10 +150,11 @@ mod tests {
 
     #[test]
     async fn add_sitemap_index_path() -> Result<(), Box<dyn Error>> {
-        let base_url = "https://example.com";
-        let sitemap_url = build_sitemap_index_url(base_url)?;
+        let base_url = Url::parse("https://example.com")?;
+        let sitemap_url = build_sitemap_index_url(&base_url)?;
 
-        assert_eq!(sitemap_url, "https://example.com/sitemaps.xml");
+        let result = Url::parse("https://example.com/sitemaps.xml")?;
+        assert_eq!(sitemap_url, result);
 
         Ok(())
     }
@@ -166,25 +168,14 @@ mod tests {
             .create_async()
             .await;
 
-        let url = build_sitemap_index_url(&server.url())?;
+        let server_url = Url::parse(&server.url())?;
+        let url = build_sitemap_index_url(&server_url)?;
         let response = fetch_sitemap(&url).await?;
 
         mock.assert_async().await;
         assert_eq!(response, "<xml>Mock Sitemap</xml>");
 
         Ok(())
-    }
-
-    #[test]
-    async fn fail_when_url_invalid() {
-        let result = fetch_sitemap("invalid-url").await;
-        assert!(result.is_err());
-    }
-
-    #[test]
-    async fn fail_on_invalid_protocal() {
-        let result = fetch_sitemap("ftp://invalid").await;
-        assert!(result.is_err());
     }
 
     #[test]
@@ -197,7 +188,8 @@ mod tests {
             .create_async()
             .await;
 
-        let url = build_sitemap_index_url(&server.url())?;
+        let server_url = Url::parse(&server.url())?;
+        let url = build_sitemap_index_url(&server_url)?;
         let result = fetch_sitemap(&url).await;
 
         assert!(result.is_err());
@@ -206,29 +198,27 @@ mod tests {
     }
 
     #[test]
-    async fn remove_duplicate_urls() {
+    async fn remove_duplicate_urls() -> Result<(), Box<dyn Error>> {
+        let url1 = Url::parse("https://example.com")?;
+        let url2 = Url::parse("https://example-2.com")?;
+        let url3 = Url::parse("https://example-3.com")?;
         let urls = vec![
-            "https://example.com".to_string(),
-            "https://example-2.com".to_string(),
-            "https://example.com".to_string(),
-            "https://example-3.com".to_string(),
-            "https://example-2.com".to_string(),
+            url1.clone(),
+            url2.clone(),
+            url1.clone(),
+            url3.clone(),
+            url2.clone(),
         ];
 
         let unique = remove_duplicates(urls);
 
-        assert_eq!(
-            unique,
-            vec![
-                "https://example.com".to_string(),
-                "https://example-2.com".to_string(),
-                "https://example-3.com".to_string()
-            ]
-        );
+        assert_eq!(unique, vec![url1, url2, url3,]);
+
+        Ok(())
     }
 
     #[test]
-    async fn extracts_valid_loc_urls() {
+    async fn extracts_valid_loc_urls() -> Result<(), Box<dyn Error>> {
         let xml = r#"
         <urlset>
             <url>
@@ -241,14 +231,15 @@ mod tests {
         "#;
 
         let urls = extract_loc_urls(xml).await;
-        assert_eq!(
-            urls,
-            vec!["https://example.com/page1", "https://example.com/page2"]
-        );
+        let url1 = Url::parse("https://example.com/page1")?;
+        let url2 = Url::parse("https://example.com/page2")?;
+        assert_eq!(urls, vec![url1, url2]);
+
+        Ok(())
     }
 
     #[test]
-    async fn skips_invalid_urls() {
+    async fn skips_invalid_urls() -> Result<(), Box<dyn Error>> {
         let xml = r#"
         <urlset>
             <url>
@@ -261,7 +252,9 @@ mod tests {
         "#;
 
         let urls = extract_loc_urls(xml).await;
-        assert_eq!(urls, vec!["https://example.com/page1"]);
+        let url1 = Url::parse("https://example.com/page1")?;
+        assert_eq!(urls, vec![url1]);
+        Ok(())
     }
 
     #[test]
