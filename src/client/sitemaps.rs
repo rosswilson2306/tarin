@@ -1,11 +1,12 @@
 use std::collections::HashSet;
 
 use anyhow::{anyhow, Context, Result};
+use async_recursion::async_recursion;
 use quick_xml::events::Event;
 use quick_xml::reader::Reader;
 use url::Url;
 
-use crate::config::load_config;
+use crate::config::{load_config, Config};
 
 async fn fetch_sitemap(url: &str) -> Result<String> {
     // TODO: look into refactoring this into a client, see https://docs.rs/reqwest/latest/reqwest/?search=params#making-a-get-request
@@ -61,33 +62,61 @@ fn remove_duplicates(mut source_set: Vec<String>) -> Vec<String> {
 pub async fn extract_sitemap_url_list(base_url: &str) -> Result<Vec<String>> {
     let config = load_config("config.toml").await;
 
-    let sitemap_url =
+    let sitemap_index_url =
         build_sitemap_index_url(base_url).context("Failed to build sitemap index url")?;
-    let sitemap = fetch_sitemap(&sitemap_url)
+
+    let mut visited_sitemaps = HashSet::new();
+    let mut all_urls = Vec::new();
+
+    fetch_sitemap_recurse(
+        &sitemap_index_url,
+        &mut all_urls,
+        &mut visited_sitemaps,
+        &config,
+    )
+    .await?;
+
+    Ok(all_urls)
+}
+
+#[async_recursion]
+async fn fetch_sitemap_recurse(
+    sitemap_url: &str,
+    all_urls: &mut Vec<String>,
+    visited_sitemaps: &mut HashSet<String>,
+    config: &Option<Config>,
+) -> Result<()> {
+    if !visited_sitemaps.insert(sitemap_url.to_string()) {
+        return Ok(());
+    }
+
+    let sitemap = fetch_sitemap(sitemap_url)
         .await
         .context("Unable to fetch sitemap")?;
 
-    let mut all_urls = Vec::new();
+    let urls = extract_loc_urls(&sitemap).await;
+    let unique_urls = remove_duplicates(urls);
 
-    let top_level_urls = extract_loc_urls(&sitemap).await;
-    let unique_top_level_urls = remove_duplicates(top_level_urls);
-
-    for top_level_url in unique_top_level_urls {
+    for url in unique_urls {
         if let Some(ref config) = config {
-            if config.ignore_paths.iter().any(|ignore_path| top_level_url.contains(ignore_path)) {
-                println!("Matched ignore list: {top_level_url}");
+            if config
+                .ignore_paths
+                .iter()
+                .any(|ignore_path| url.contains(ignore_path))
+            {
+                println!("Matched ignore list: {url}");
                 continue;
             }
         }
 
-        if top_level_url.contains("sitemaps") {
-            let child_sitemap_url = fetch_sitemap(&top_level_url).await?;
-            let child_urls = extract_loc_urls(&child_sitemap_url).await;
-            all_urls.extend(child_urls);
+        if url.contains("sitemaps/") {
+            fetch_sitemap_recurse(&url, all_urls, visited_sitemaps, config).await?;
+        } else {
+            all_urls.push(url);
         }
     }
 
-    Ok(all_urls)
+    Ok(())
 }
 
 #[cfg(test)]
