@@ -97,6 +97,7 @@ async fn fetch_sitemap_recurse(
 
     let urls = extract_loc_urls(&sitemap).await;
     let unique_urls = remove_duplicates(urls);
+    let mut seen_patterns = HashSet::new();
 
     for url in unique_urls {
         if let Some(ref config) = config {
@@ -107,6 +108,14 @@ async fn fetch_sitemap_recurse(
             {
                 println!("Matched ignore list: {url}");
                 continue;
+            }
+
+            if let Some(matched_pattern) = get_pattern(&url, &config.patterns) {
+                if seen_patterns.contains(&matched_pattern) {
+                    println!("Skipping duplicate pattern: {url}");
+                    continue;
+                }
+                seen_patterns.insert(matched_pattern.clone());
             }
         }
 
@@ -120,9 +129,18 @@ async fn fetch_sitemap_recurse(
     Ok(())
 }
 
-fn match_dynamic_url_pattern(url: &str, pattern: &str) -> Option<String> {
-    let pattern_parts: Vec<&str> = pattern.split("/").collect();
-    let url_parts: Vec<&str> = url.split("/").collect();
+fn get_pattern(url: &Url, patterns: &Vec<String>) -> Option<String> {
+    for pattern in patterns {
+        if let Some(matched) = match_dynamic_url_pattern(url, pattern) {
+            return Some(matched);
+        }
+    }
+    None
+}
+
+fn match_dynamic_url_pattern(url: &Url, pattern: &str) -> Option<String> {
+    let pattern_parts: Vec<&str> = pattern.split("/").filter(|s| !s.is_empty()).collect();
+    let url_parts: Vec<&str> = url.path_segments()?.collect();
 
     if url_parts.len() != pattern_parts.len() {
         return None;
@@ -143,10 +161,6 @@ fn match_dynamic_url_pattern(url: &str, pattern: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use std::error::Error;
-    use tokio::test;
-
     mod build_sitemap_index_url {
         use super::super::*;
         use std::error::Error;
@@ -279,32 +293,62 @@ mod tests {
 
     mod match_dynamic_url_pattern {
         use super::super::*;
+        use std::error::Error;
 
         #[tokio::test]
-        async fn url_segment_length_less_than_pattern_length() {
-            let url = "/foo/123";
+        async fn url_segment_length_less_than_pattern_length() -> Result<(), Box<dyn Error>> {
+            let url = Url::parse("https://example.com/foo/123")?;
             let pattern = "/foo/bar/:id";
 
-            let output = match_dynamic_url_pattern(url, pattern);
+            let output = match_dynamic_url_pattern(&url, pattern);
             assert!(output.is_none());
+            Ok(())
         }
 
         #[tokio::test]
-        async fn fail_if_static_url_segment_differs_from_pattern() {
-            let url = "/foo/123";
+        async fn fail_if_static_url_segment_differs_from_pattern() -> Result<(), Box<dyn Error>> {
+            let url = Url::parse("https://examples.com/foo/123")?;
             let pattern = "/bar/:id";
 
-            let output = match_dynamic_url_pattern(url, pattern);
+            let output = match_dynamic_url_pattern(&url, pattern);
             assert!(output.is_none());
+            Ok(())
         }
 
         #[tokio::test]
-        async fn match_url_to_pattern() {
-            let url = "/example/123";
+        async fn match_url_to_pattern() -> Result<(), Box<dyn Error>> {
+            let url = Url::parse("https://examples.com/example/123")?;
             let pattern = "/example/:id";
 
-            let output = match_dynamic_url_pattern(url, pattern);
+            let output = match_dynamic_url_pattern(&url, pattern);
             assert!(output.is_some());
+            Ok(())
+        }
+    }
+
+    mod get_pattern {
+        use super::super::*;
+        use std::error::Error;
+
+        #[test]
+        fn no_pattern_found() -> Result<(), Box<dyn Error>> {
+            let url = Url::parse("https://example.com/foo/bar/baz")?;
+            let patterns = vec!["/bar/bat".to_string(), "/bar/:id".to_string()];
+
+            let result = get_pattern(&url, &patterns);
+            assert!(result.is_none());
+
+            Ok(())
+        }
+
+        #[test]
+        fn matched_pattern_found() -> Result<(), Box<dyn Error>> {
+            let url = Url::parse("https://example.com/foo/123")?;
+            let patterns = vec!["/foo/:id".to_string(), "/bar/:slug".to_string()];
+
+            let pattern = get_pattern(&url, &patterns).ok_or("Not found")?;
+            assert_eq!(pattern, "/foo/:id");
+            Ok(())
         }
     }
 }
