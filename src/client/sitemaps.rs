@@ -124,7 +124,7 @@ fn match_dynamic_url_pattern(url: &str, pattern: &str) -> Option<String> {
     let pattern_parts: Vec<&str> = pattern.split("/").collect();
     let url_parts: Vec<&str> = url.split("/").collect();
 
-    if url_parts.len() < pattern_parts.len() {
+    if url_parts.len() != pattern_parts.len() {
         return None;
     }
 
@@ -144,143 +144,167 @@ fn match_dynamic_url_pattern(url: &str, pattern: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mockito::Server;
     use std::error::Error;
     use tokio::test;
 
-    #[test]
-    async fn add_sitemap_index_path() -> Result<(), Box<dyn Error>> {
-        let base_url = Url::parse("https://example.com")?;
-        let sitemap_url = build_sitemap_index_url(&base_url)?;
+    mod build_sitemap_index_url {
+        use super::super::*;
+        use std::error::Error;
 
-        let result = Url::parse("https://example.com/sitemaps.xml")?;
-        assert_eq!(sitemap_url, result);
+        #[tokio::test]
+        async fn add_sitemap_index_path() -> Result<(), Box<dyn Error>> {
+            let base_url = Url::parse("https://example.com")?;
+            let sitemap_url = build_sitemap_index_url(&base_url)?;
 
-        Ok(())
+            let result = Url::parse("https://example.com/sitemaps.xml")?;
+            assert_eq!(sitemap_url, result);
+
+            Ok(())
+        }
     }
 
-    #[test]
-    async fn build_request_for_sitemap() -> Result<(), Box<dyn Error>> {
-        let mut server = Server::new_async().await;
-        let mock = server
-            .mock("GET", "/sitemaps.xml")
-            .with_body("<xml>Mock Sitemap</xml>")
-            .create_async()
-            .await;
+    mod fetch_sitemap {
+        use super::super::*;
+        use mockito::Server;
+        use std::error::Error;
 
-        let server_url = Url::parse(&server.url())?;
-        let url = build_sitemap_index_url(&server_url)?;
-        let response = fetch_sitemap(&url).await?;
+        #[tokio::test]
+        async fn build_request_for_sitemap() -> Result<(), Box<dyn Error>> {
+            let mut server = Server::new_async().await;
+            let mock = server
+                .mock("GET", "/sitemaps.xml")
+                .with_body("<xml>Mock Sitemap</xml>")
+                .create_async()
+                .await;
 
-        mock.assert_async().await;
-        assert_eq!(response, "<xml>Mock Sitemap</xml>");
+            let server_url = Url::parse(&server.url())?;
+            let url = build_sitemap_index_url(&server_url)?;
+            let response = fetch_sitemap(&url).await?;
 
-        Ok(())
+            mock.assert_async().await;
+            assert_eq!(response, "<xml>Mock Sitemap</xml>");
+
+            Ok(())
+        }
+
+        #[tokio::test]
+        async fn not_found_sitemaps() -> Result<(), Box<dyn Error>> {
+            let mut server = Server::new_async().await;
+            let mock = server
+                .mock("GET", "/sitemaps.xml")
+                .with_status(404)
+                .with_body("Not Found")
+                .create_async()
+                .await;
+
+            let server_url = Url::parse(&server.url())?;
+            let url = build_sitemap_index_url(&server_url)?;
+            let result = fetch_sitemap(&url).await;
+
+            assert!(result.is_err());
+            mock.assert_async().await;
+            Ok(())
+        }
     }
 
-    #[test]
-    async fn not_found_sitemaps() -> Result<(), Box<dyn Error>> {
-        let mut server = Server::new_async().await;
-        let mock = server
-            .mock("GET", "/sitemaps.xml")
-            .with_status(404)
-            .with_body("Not Found")
-            .create_async()
-            .await;
+    mod remove_duplicates {
+        use super::super::*;
+        use std::error::Error;
 
-        let server_url = Url::parse(&server.url())?;
-        let url = build_sitemap_index_url(&server_url)?;
-        let result = fetch_sitemap(&url).await;
+        #[tokio::test]
+        async fn remove_duplicate_urls() -> Result<(), Box<dyn Error>> {
+            let url1 = Url::parse("https://example.com")?;
+            let url2 = Url::parse("https://example-2.com")?;
+            let url3 = Url::parse("https://example-3.com")?;
+            let urls = vec![
+                url1.clone(),
+                url2.clone(),
+                url1.clone(),
+                url3.clone(),
+                url2.clone(),
+            ];
 
-        assert!(result.is_err());
-        mock.assert_async().await;
-        Ok(())
+            let unique = remove_duplicates(urls);
+
+            assert_eq!(unique, vec![url1, url2, url3,]);
+
+            Ok(())
+        }
     }
 
-    #[test]
-    async fn remove_duplicate_urls() -> Result<(), Box<dyn Error>> {
-        let url1 = Url::parse("https://example.com")?;
-        let url2 = Url::parse("https://example-2.com")?;
-        let url3 = Url::parse("https://example-3.com")?;
-        let urls = vec![
-            url1.clone(),
-            url2.clone(),
-            url1.clone(),
-            url3.clone(),
-            url2.clone(),
-        ];
+    mod extract_loc_urls {
+        use super::super::*;
+        use std::error::Error;
 
-        let unique = remove_duplicates(urls);
+        #[tokio::test]
+        async fn extracts_valid_loc_urls() -> Result<(), Box<dyn Error>> {
+            let xml = r#"
+            <urlset>
+                <url>
+                    <loc>https://example.com/page1</loc>
+                </url>
+                <url>
+                    <loc>https://example.com/page2</loc>
+                </url>
+            </urlset>
+            "#;
 
-        assert_eq!(unique, vec![url1, url2, url3,]);
+            let urls = extract_loc_urls(xml).await;
+            let url1 = Url::parse("https://example.com/page1")?;
+            let url2 = Url::parse("https://example.com/page2")?;
+            assert_eq!(urls, vec![url1, url2]);
 
-        Ok(())
+            Ok(())
+        }
+
+        #[tokio::test]
+        async fn skips_invalid_urls() -> Result<(), Box<dyn Error>> {
+            let xml = r#"
+            <urlset>
+                <url>
+                    <loc>https://example.com/page1</loc>
+                </url>
+                <url>
+                    <loc>invalid_url</loc>
+                </url>
+            </urlset>
+            "#;
+
+            let urls = extract_loc_urls(xml).await;
+            let url1 = Url::parse("https://example.com/page1")?;
+            assert_eq!(urls, vec![url1]);
+            Ok(())
+        }
     }
 
-    #[test]
-    async fn extracts_valid_loc_urls() -> Result<(), Box<dyn Error>> {
-        let xml = r#"
-        <urlset>
-            <url>
-                <loc>https://example.com/page1</loc>
-            </url>
-            <url>
-                <loc>https://example.com/page2</loc>
-            </url>
-        </urlset>
-        "#;
+    mod match_dynamic_url_pattern {
+        use super::super::*;
 
-        let urls = extract_loc_urls(xml).await;
-        let url1 = Url::parse("https://example.com/page1")?;
-        let url2 = Url::parse("https://example.com/page2")?;
-        assert_eq!(urls, vec![url1, url2]);
+        #[tokio::test]
+        async fn url_segment_length_less_than_pattern_length() {
+            let url = "/foo/123";
+            let pattern = "/foo/bar/:id";
 
-        Ok(())
-    }
+            let output = match_dynamic_url_pattern(url, pattern);
+            assert!(output.is_none());
+        }
 
-    #[test]
-    async fn skips_invalid_urls() -> Result<(), Box<dyn Error>> {
-        let xml = r#"
-        <urlset>
-            <url>
-                <loc>https://example.com/page1</loc>
-            </url>
-            <url>
-                <loc>invalid_url</loc>
-            </url>
-        </urlset>
-        "#;
+        #[tokio::test]
+        async fn fail_if_static_url_segment_differs_from_pattern() {
+            let url = "/foo/123";
+            let pattern = "/bar/:id";
 
-        let urls = extract_loc_urls(xml).await;
-        let url1 = Url::parse("https://example.com/page1")?;
-        assert_eq!(urls, vec![url1]);
-        Ok(())
-    }
+            let output = match_dynamic_url_pattern(url, pattern);
+            assert!(output.is_none());
+        }
 
-    #[test]
-    async fn url_segment_length_less_than_pattern_length() {
-        let url = "/foo/123";
-        let pattern = "/foo/bar/:id";
+        #[tokio::test]
+        async fn match_url_to_pattern() {
+            let url = "/example/123";
+            let pattern = "/example/:id";
 
-        let output = match_dynamic_url_pattern(url, pattern);
-        assert!(output.is_none());
-    }
-
-    #[test]
-    async fn fail_if_static_url_segment_differs_from_pattern() {
-        let url = "/foo/123";
-        let pattern = "/bar/:id";
-
-        let output = match_dynamic_url_pattern(url, pattern);
-        assert!(output.is_none());
-    }
-
-    #[test]
-    async fn match_url_to_pattern() {
-        let url = "/example/123";
-        let pattern = "/example/:id";
-
-        let output = match_dynamic_url_pattern(url, pattern);
-        assert!(output.is_some());
+            let output = match_dynamic_url_pattern(url, pattern);
+            assert!(output.is_some());
+        }
     }
 }
