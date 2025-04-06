@@ -2,6 +2,7 @@ use anyhow::{Context, Result};
 use reqwest::Client;
 use serde_json::Value;
 
+#[derive(Clone)]
 pub struct PsiClient {
     base_url: String,
     api_key: String,

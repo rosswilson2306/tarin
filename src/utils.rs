@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use url::Url;
 
 use crate::config::load_config;
@@ -13,7 +13,7 @@ pub async fn get_base_sites() -> Result<Vec<Url>> {
             sites.push(site_url)
         }
     } else {
-        return Err(anyhow!("No config found"));
+        panic!();
     }
 
     Ok(sites)
