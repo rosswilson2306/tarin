@@ -18,7 +18,6 @@ but this may change in the future (see [Page Speed Insights documentation](https
 
 ## TODO
 
-- gate async tasks to only process 10 sites at any time
 - database setup for sites
 - post handler to create sites in db
 - config for limits on paths of a certain type

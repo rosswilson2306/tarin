@@ -4,6 +4,7 @@ use anyhow::{anyhow, Context, Result};
 use async_recursion::async_recursion;
 use quick_xml::events::Event;
 use quick_xml::reader::Reader;
+use tracing::info;
 use url::Url;
 
 use crate::config::{load_config, Config};
@@ -106,13 +107,13 @@ async fn fetch_sitemap_recurse(
                 .iter()
                 .any(|ignore_path| url.path().contains(ignore_path))
             {
-                println!("Matched ignore list: {url}");
+                info!("Matched ignore list: {url}");
                 continue;
             }
 
             if let Some(matched_pattern) = get_pattern(&url, &config.patterns) {
                 if seen_patterns.contains(&matched_pattern) {
-                    println!("Skipping duplicate pattern: {url}");
+                    info!("Skipping duplicate pattern: {url}");
                     continue;
                 }
                 seen_patterns.insert(matched_pattern.clone());

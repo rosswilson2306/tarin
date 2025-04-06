@@ -1,7 +1,12 @@
 use anyhow::{anyhow, Result};
 use axum::response::sse::Event;
 use std::{convert::Infallible, sync::Arc, time::Duration};
-use tokio::{sync::mpsc, task, time::sleep};
+use tokio::{
+    sync::{mpsc, Semaphore},
+    task,
+    time::sleep,
+};
+use tracing::{error, info};
 
 use crate::{
     client::{psi::PsiClient, sitemaps::extract_sitemap_url_list},
@@ -24,16 +29,23 @@ pub async fn process_websites(
     };
 
     let psi_client = Arc::new(PsiClient::new(&psi_url, &psi_key));
+    let semaphore = Arc::new(Semaphore::new(10));
 
     for site in websites {
         let sender = sender.clone();
         let psi_client = psi_client.clone();
+        let semaphore = semaphore.clone();
 
         task::spawn(async move {
+            let _permit = match semaphore.acquire_owned().await {
+                Ok(permit) => permit,
+                Err(e) => return error!("Failed to acquire permit from semaphore: {e}"),
+            };
+
             let site_urls = match extract_sitemap_url_list(&site).await {
                 Ok(urls_list) => urls_list,
                 Err(_) => {
-                    return eprintln!(
+                    return error!(
                         "Failed to extract urls from sitemaps for: {}",
                         site.as_ref()
                     )
@@ -41,12 +53,12 @@ pub async fn process_websites(
             };
 
             for url in site_urls {
-                println!("Running PSI report for: {} ...", url);
+                info!("Running PSI report for: {} ...", url);
 
                 let psi_res = match psi_client.get_report(url.as_ref()).await {
                     Ok(res) => res,
                     Err(_) => {
-                        eprintln!("Error fetching report for: {}", url);
+                        error!("Error fetching report for: {}", url);
                         break;
                     }
                 };
@@ -54,7 +66,7 @@ pub async fn process_websites(
                 let psi_event = match Event::default().json_data(psi_res) {
                     Ok(event) => event,
                     Err(_) => {
-                        eprintln!("Error creating event from PSI report data for: {}", url);
+                        error!("Error creating event from PSI report data for: {}", url);
                         break;
                     }
                 };
