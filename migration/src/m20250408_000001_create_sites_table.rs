@@ -12,7 +12,13 @@ impl MigrationTrait for Migration {
                     .table(Sites::Table)
                     .if_not_exists()
                     .col(pk_auto(Sites::Id))
-                    .col(string(Sites::Domain))
+                    .col(string(Sites::Domain).not_null())
+                    .col(
+                        ColumnDef::new(Sites::CreatedAt)
+                            .timestamp()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
                     .to_owned(),
             )
             .await
@@ -26,8 +32,9 @@ impl MigrationTrait for Migration {
 }
 
 #[derive(DeriveIden)]
-enum Sites {
+pub enum Sites {
     Table,
     Id,
     Domain,
+    CreatedAt,
 }
