@@ -10,8 +10,10 @@ mod client;
 pub mod config;
 mod handlers;
 mod utils;
+mod entities;
 
 use handlers::sse_reports_handler;
+use entities::{prelude::*, *};
 
 #[tokio::main]
 async fn main() -> Result<()> {
