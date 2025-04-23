@@ -25,6 +25,7 @@ toml = "0.8.20"
 async-recursion = "1.1.1"
 sea-orm = { version = "1.1.0", features = [ "sqlx-postgres", "runtime-tokio-native-tls", "macros", "debug-print" ] }
 migration = { path = "migration" }
+axum-macros = "0.5.0"
 
 [dev-dependencies]
 mockito = "1.7.0"
