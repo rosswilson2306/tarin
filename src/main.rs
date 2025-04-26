@@ -14,11 +14,11 @@ use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
 mod client;
 pub mod config;
 mod entities;
-mod handlers;
+mod routes;
 mod utils;
 
 use entities::{prelude::*, *};
-use handlers::{create_site_handler, sse_reports_handler};
+use routes::{reports, sites};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -41,8 +41,8 @@ async fn main() -> Result<()> {
     tracing_subscriber::registry().with(fmt::layer()).init();
 
     let app = Router::new()
-        .route("/reports", get(sse_reports_handler))
-        .route("/sites", post(create_site_handler))
+        .route("/reports", get(reports::sse_reports_handler))
+        .route("/sites", post(sites::create_site_handler))
         .layer(
             TraceLayer::new_for_http()
                 .make_span_with(DefaultMakeSpan::new().level(Level::INFO))
