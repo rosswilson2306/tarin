@@ -37,12 +37,12 @@ async fn main() -> Result<()> {
     let db: Arc<DatabaseConnection> = Arc::new(Database::connect(database_url).await?);
     let app_state = Arc::new(AppState { db });
 
-    // TODO: look into logging format
     tracing_subscriber::registry().with(fmt::layer()).init();
 
     let app = Router::new()
         .route("/reports", get(reports::sse_reports_handler))
         .route("/sites", post(sites::create_site_handler))
+        .route("/sites", get(sites::get_sites))
         .layer(
             TraceLayer::new_for_http()
                 .make_span_with(DefaultMakeSpan::new().level(Level::INFO))

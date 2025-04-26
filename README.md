@@ -20,9 +20,7 @@ but this may change in the future (see [Page Speed Insights documentation](https
 
 ## TODO
 
-- database setup for sites
-- post handler to create sites in db
+- filtering / pagination for get requests
 - config for limits on paths of a certain type
 - run multiple reports for a single url and take a average
-- request logging
 - test coverage
