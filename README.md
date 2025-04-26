@@ -1,6 +1,8 @@
 # Tarin
 
-A tool that automates Lighthouse reports on all relevant URLs for a given list of websites.
+A tool that automates PageSpeed Insights reporting across multiple websites by
+generating a tailored list of URLs from sitemaps, providing site-wide performance
+reporting to support large-scale web portfolio management.
 
 ## Getting Started
 
