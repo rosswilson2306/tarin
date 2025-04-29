@@ -1,5 +1,11 @@
-use axum::{extract::{Path, State}, http::StatusCode, Json};
-use sea_orm::{ActiveModelTrait, ActiveValue::Set, EntityTrait};
+use axum::{
+    extract::{Path, State},
+    http::StatusCode,
+    response::IntoResponse,
+    Json,
+};
+use axum_macros::debug_handler;
+use sea_orm::{ActiveModelTrait, ActiveValue::Set, DeleteResult, EntityTrait};
 use serde::Deserialize;
 use std::sync::Arc;
 // use axum_macros::debug_handler;
@@ -77,8 +83,27 @@ pub async fn update_site(
         site.domain = Set(domain);
     }
 
-    let site: sites::Model = site.update(app_state.db.as_ref()).await
+    let site: sites::Model = site
+        .update(app_state.db.as_ref())
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(Json(site))
+}
+
+#[debug_handler]
+pub async fn delete_site(
+    Path(site_id): Path<i32>,
+    State(app_state): State<Arc<AppState>>,
+) -> Result<impl IntoResponse, StatusCode> {
+    let result: DeleteResult = Sites::delete_by_id(site_id)
+        .exec(app_state.db.as_ref())
+        .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     
-    Ok(Json(site))
+    if result.rows_affected == 0 {
+        return Err(StatusCode::NOT_FOUND);
+    }
+
+    Ok(StatusCode::NO_CONTENT)
 }

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use anyhow::{Context, Result};
 use axum::{
-    routing::{get, post, put},
+    routing::{delete, get, post, put},
     Router,
 };
 use dotenv::dotenv;
@@ -45,6 +45,7 @@ async fn main() -> Result<()> {
         .route("/sites", get(sites::get_sites))
         .route("/sites/{site_id}", get(sites::get_site))
         .route("/sites/{site_id}", put(sites::update_site))
+        .route("/sites/{site_id}", delete(sites::delete_site))
         .layer(
             TraceLayer::new_for_http()
                 .make_span_with(DefaultMakeSpan::new().level(Level::INFO))
