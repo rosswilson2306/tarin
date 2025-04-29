@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use anyhow::{Context, Result};
 use axum::{
-    routing::{get, post},
-    Extension, Router,
+    routing::{delete, get, post, put},
+    Router,
 };
 use dotenv::dotenv;
 use sea_orm::{Database, DatabaseConnection};
@@ -43,12 +43,15 @@ async fn main() -> Result<()> {
         .route("/reports", get(reports::sse_reports_handler))
         .route("/sites", post(sites::create_site_handler))
         .route("/sites", get(sites::get_sites))
+        .route("/sites/{site_id}", get(sites::get_site))
+        .route("/sites/{site_id}", put(sites::update_site))
+        .route("/sites/{site_id}", delete(sites::delete_site))
         .layer(
             TraceLayer::new_for_http()
                 .make_span_with(DefaultMakeSpan::new().level(Level::INFO))
                 .on_response(DefaultOnResponse::new().level(Level::INFO)),
         )
-        .layer(Extension(app_state.clone()));
+        .with_state(app_state);
 
     let listener = tokio::net::TcpListener::bind(server_url).await.unwrap();
     axum::serve(listener, app).await.unwrap();

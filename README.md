@@ -37,7 +37,9 @@ to apply all pending migrations.
 
 ## TODO
 
+- organise routes when adding to app
 - filtering / pagination for get requests
+- better error handling for route handlers (best practices)
 - config for limits on paths of a certain type
 - run multiple reports for a single url and take a average
 - test coverage
