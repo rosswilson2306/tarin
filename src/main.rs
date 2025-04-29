@@ -43,6 +43,7 @@ async fn main() -> Result<()> {
         .route("/reports", get(reports::sse_reports_handler))
         .route("/sites", post(sites::create_site_handler))
         .route("/sites", get(sites::get_sites))
+        .route("/sites/{site_id}", get(sites::get_site))
         .layer(
             TraceLayer::new_for_http()
                 .make_span_with(DefaultMakeSpan::new().level(Level::INFO))

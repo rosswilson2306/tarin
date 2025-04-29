@@ -1,4 +1,4 @@
-use axum::{Extension, Json};
+use axum::{extract::Path, Extension, Json};
 use sea_orm::{ActiveModelTrait, EntityTrait};
 use serde::Deserialize;
 use std::sync::Arc;
@@ -40,4 +40,21 @@ pub async fn get_sites(
         .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(Json(sites))
+}
+
+pub async fn get_site(
+    Path(site_id): Path<i32>,
+    Extension(app_state): Extension<Arc<AppState>>,
+) -> Result<Json<sites::Model>, axum::http::StatusCode> {
+    let site: Option<sites::Model> = Sites::find_by_id(site_id)
+        .one(app_state.db.as_ref())
+        .await
+        .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let site = match site {
+        Some(s) => s,
+        None => return Err(axum::http::StatusCode::NOT_FOUND)
+    };
+
+    Ok(Json(site))
 }
