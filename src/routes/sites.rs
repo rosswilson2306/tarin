@@ -4,11 +4,9 @@ use axum::{
     response::IntoResponse,
     Json,
 };
-use axum_macros::debug_handler;
 use sea_orm::{ActiveModelTrait, ActiveValue::Set, DeleteResult, EntityTrait};
 use serde::Deserialize;
 use std::sync::Arc;
-// use axum_macros::debug_handler;
 
 use crate::{
     entities::sites::{self, Entity as Sites},
@@ -91,7 +89,6 @@ pub async fn update_site(
     Ok(Json(site))
 }
 
-#[debug_handler]
 pub async fn delete_site(
     Path(site_id): Path<i32>,
     State(app_state): State<Arc<AppState>>,
