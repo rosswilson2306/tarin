@@ -3,7 +3,7 @@ use std::sync::Arc;
 use anyhow::{Context, Result};
 use axum::{
     routing::{get, post, put},
-    Extension, Router,
+    Router,
 };
 use dotenv::dotenv;
 use sea_orm::{Database, DatabaseConnection};
@@ -50,7 +50,7 @@ async fn main() -> Result<()> {
                 .make_span_with(DefaultMakeSpan::new().level(Level::INFO))
                 .on_response(DefaultOnResponse::new().level(Level::INFO)),
         )
-        .layer(Extension(app_state.clone()));
+        .with_state(app_state);
 
     let listener = tokio::net::TcpListener::bind(server_url).await.unwrap();
     axum::serve(listener, app).await.unwrap();

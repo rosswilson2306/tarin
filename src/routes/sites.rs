@@ -1,5 +1,4 @@
-use axum::{extract::Path, http::StatusCode, Extension, Json};
-use axum_macros::debug_handler;
+use axum::{extract::{Path, State}, http::StatusCode, Json};
 use sea_orm::{ActiveModelTrait, ActiveValue::Set, EntityTrait};
 use serde::Deserialize;
 use std::sync::Arc;
@@ -16,7 +15,7 @@ pub struct NewSite {
 }
 
 pub async fn create_site_handler(
-    Extension(app_state): Extension<Arc<AppState>>,
+    State(app_state): State<Arc<AppState>>,
     Json(payload): Json<NewSite>,
 ) -> Result<Json<sites::Model>, StatusCode> {
     let new_site = sites::ActiveModel {
@@ -33,7 +32,7 @@ pub async fn create_site_handler(
 }
 
 pub async fn get_sites(
-    Extension(app_state): Extension<Arc<AppState>>,
+    State(app_state): State<Arc<AppState>>,
 ) -> Result<Json<Vec<sites::Model>>, StatusCode> {
     let sites: Vec<sites::Model> = Sites::find()
         .all(app_state.db.as_ref())
@@ -45,7 +44,7 @@ pub async fn get_sites(
 
 pub async fn get_site(
     Path(site_id): Path<i32>,
-    Extension(app_state): Extension<Arc<AppState>>,
+    State(app_state): State<Arc<AppState>>,
 ) -> Result<Json<sites::Model>, StatusCode> {
     let site: sites::Model = Sites::find_by_id(site_id)
         .one(app_state.db.as_ref())
@@ -63,7 +62,7 @@ pub struct UpdateSite {
 
 pub async fn update_site(
     Path(site_id): Path<i32>,
-    Extension(app_state): Extension<Arc<AppState>>,
+    State(app_state): State<Arc<AppState>>,
     Json(payload): Json<UpdateSite>,
 ) -> Result<Json<sites::Model>, StatusCode> {
     let site: sites::Model = Sites::find_by_id(site_id)
