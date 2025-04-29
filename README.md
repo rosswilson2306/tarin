@@ -18,6 +18,23 @@ DATABASE_URL=postgres://user:password@127.0.0.1:5432/tarin
 At the time of writing the url for the Page Speed Insights api is `https://www.googleapis.com/pagespeedonline/v5/runPagespeed`
 but this may change in the future (see [Page Speed Insights documentation](https://developers.google.com/speed/docs/insights/v5/get-started)).
 
+### Dependencies
+
+Tarin uses [`sea-orm`](https://www.sea-ql.org/SeaORM/) to manage and interact
+with the PostgreQL database. Install `sea-orm-cli`.
+
+```bash
+cargo install sea-orm-cli
+```
+
+then run
+
+```bash
+sea-orm-cli migrate up
+```
+
+to apply all pending migrations.
+
 ## TODO
 
 - filtering / pagination for get requests
