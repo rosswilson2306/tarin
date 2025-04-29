@@ -21,7 +21,7 @@ but this may change in the future (see [Page Speed Insights documentation](https
 ### Dependencies
 
 Tarin uses [`sea-orm`](https://www.sea-ql.org/SeaORM/) to manage and interact
-with the PostgreQL database. Install `sea-orm-cli`.
+with the PostgreSQL database. Install `sea-orm-cli`.
 
 ```bash
 cargo install sea-orm-cli
